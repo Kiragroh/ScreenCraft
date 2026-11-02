@@ -1,3 +1,12 @@
+> **Windows-focused community fork** of [MarshallNickolauson/ScreenCraft](https://github.com/MarshallNickolauson/ScreenCraft), maintained by [Kiragroh](https://github.com/Kiragroh). The default `windows` branch includes the changes below. This fork is independent of the original author; the upstream download links farther down do **not** contain these additions.
+>
+> - Windows recording fixes: visible Stop controls, narrow recording borders instead of a full-screen transparent overlay, no console window, and corrected H.264 frame ordering/decoder buffering.
+> - **Medien** library: all recordings across current, previous and favorite folders; search; recoverable deletion and restoration of complete recording packages.
+> - Separate webcam and mouse data retained for later editing, with visible camera failure reporting.
+> - Editable **laser pointer**, custom cursor colors, sizes from 5–160 pt, and configurable pointer highlights in both preview and export.
+>
+> See [media library notes](docs/local/media-library.md) and [cursor features](docs/local/cursor-features.md). These additions were built and tested locally on Windows with synthetic media, real compositor tests and MP4 export checks. They remain experimental: actual desktop/webcam recording and the Windows area picker have not received complete end-to-end validation. macOS/Linux behavior of the additions is unverified. Original authorship and the MIT license are preserved.
+
 <p align="center">
   <img src="assets/icons/icon-1024.png" alt="ScreenCraft" width="128">
 </p>
