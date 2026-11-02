@@ -107,7 +107,7 @@ fn cursor_and_click_effect_draw_on_top() {
         let _ = c.render(&s);
         c.read_rgba().unwrap()
     };
-    s.cursor = Some(CursorDraw { pos: [0.5, 0.5], size_px: 80.0, rotation: 0.0, alpha: 1.0, scale: 1.0, kind: 0, style: 0 });
+    s.cursor = Some(CursorDraw { pos: [0.5, 0.5], size_px: 80.0, rotation: 0.0, alpha: 1.0, scale: 1.0, kind: 0, style: 0, color: None });
     let with_cursor = {
         let _ = c.render(&s);
         c.read_rgba().unwrap()
@@ -138,4 +138,43 @@ fn same_input_renders_identical_bytes() {
     let _ = c.render(&s);
     let b = c.read_rgba().unwrap();
     assert_eq!(a, b);
+}
+
+#[test]
+fn custom_pointer_color_and_laser_size_render_in_shared_compositor() {
+    let mut c = Compositor::headless().expect("GPU required for cursor rendering verification");
+    c.upload(&solid(64, 64, [30, 30, 30, 255]));
+    let mut s = plain_scene((256, 256), (64, 64));
+    place(&mut s, [0.0, 0.0, 256.0, 256.0]);
+    let mut draw = CursorDraw { pos: [0.5, 0.5], size_px: 40.0, rotation: 0.0, alpha: 1.0, scale: 1.0, kind: 0, style: 4, color: Some([1.0, 0.0, 0.0, 1.0]) };
+    s.cursor = Some(draw.clone()); c.render(&s); let red = c.read_rgba().unwrap();
+    let count = |img: &[u8], channel: usize| img.chunks_exact(4).filter(|p| p[channel] > 70 && p[channel] as i32 > p[(channel+1)%3] as i32 + 30).count();
+    assert!(count(&red, 0) > 100);
+    draw.color = Some([0.0, 1.0, 0.0, 1.0]); s.cursor = Some(draw.clone()); c.render(&s); let green = c.read_rgba().unwrap();
+    assert!(count(&green, 1) > 100); assert_ne!(red, green);
+    draw.size_px = 100.0; s.cursor = Some(draw.clone()); c.render(&s); let large = c.read_rgba().unwrap();
+    assert!(count(&large, 1) > count(&green, 1) * 3);
+    // Cursor shape changes in the source must not move the laser hotspot.
+    draw.kind = 1; s.cursor = Some(draw.clone()); c.render(&s); assert_eq!(large, c.read_rgba().unwrap());
+    draw.kind = 0; draw.style = 0; draw.color = Some([0.0, 0.3, 1.0, 1.0]);
+    s.cursor = Some(draw); c.render(&s); let blue = c.read_rgba().unwrap(); assert!(count(&blue, 2) > 300);
+    if let Some(dir) = std::env::var_os("SCREENCRAFT_CURSOR_PROOF_DIR") {
+        let dir = std::path::PathBuf::from(dir); std::fs::create_dir_all(&dir).unwrap();
+        for (name, rgba) in [("laser-red.png", red), ("laser-green.png", green), ("laser-large.png", large), ("pointer-blue.png", blue)] {
+            let mut pm = tiny_skia::Pixmap::new(256, 256).unwrap(); pm.data_mut().copy_from_slice(&rgba); pm.save_png(dir.join(name)).unwrap();
+        }
+    }
+}
+
+#[test]
+fn cursor_settings_feed_the_scene() {
+    use screencraft_core::{input::{InputLog, MoveEvent}, project::{Media, Project, Rect}, track::compute_track};
+    let mut p = Project::from_recording("cursor-test", Media { width: 640, height: 360, duration_ms: 1000.0, bounds: Rect { x:0., y:0., width:640., height:360. }, ..Default::default() });
+    p.config.cursor.style = "laser".into(); p.config.cursor.color = Some("#00ff00".into()); p.config.cursor.size = 120.0;
+    let restored = p.clone();
+    let mut log = InputLog::default(); log.bounds = p.media.bounds;
+    log.moves.push(MoveEvent { t:0., x:320., y:180., cursor:Default::default() });
+    let track = compute_track(&restored, &log, 30.0);
+    let scene = screencraft_render::build_scene(&restored, &track, 0, (640,360));
+    let cur = scene.cursor.unwrap(); assert_eq!(cur.style,4); assert_eq!(cur.color,Some([0.,1.,0.,1.])); assert!(cur.size_px > 50.0);
 }

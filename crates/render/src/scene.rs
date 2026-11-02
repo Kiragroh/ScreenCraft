@@ -27,6 +27,7 @@ pub struct CursorDraw {
     pub scale: f32,
     pub kind: u32,
     pub style: u32,
+    pub color: Option<[f32; 4]>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -232,6 +233,7 @@ pub fn build_scene_with(p: &Project, track: &RenderTrack, i: usize, out: (u32, u
             scale: track.cursor_scale.get(i).copied().unwrap_or(1.0) as f32,
             kind: kind_index(track.cursor_kind.get(i).copied().unwrap_or(0)),
             style: crate::cursors::style_index(&cfg.style),
+            color: cfg.color.as_deref().map(parse_color).or_else(|| (cfg.style == "laser").then(|| parse_color("#ff3030"))),
         })
     };
 

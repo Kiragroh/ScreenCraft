@@ -12,21 +12,21 @@ fn style_picker(st: &mut EditorState, ui: &mut Ui) {
     ui.painter().text(rect.left_center(), egui::Align2::LEFT_CENTER, "Cursor style", kit::font(13.0), LABEL);
     ui.add_space(1.0);
     let cur = st.project.config.cursor.style.clone();
-    let styles = [("macos", "Dark"), ("light", "Light"), ("accent", "Accent"), ("dot", "Dot")];
-    let tile = Vec2::new(72.0, 48.0);
-    let (rect, _) = ui.allocate_exact_size(Vec2::new(tile.x * 4.0, tile.y), Sense::hover());
+    let styles = [("macos", "Dunkel"), ("light", "Hell"), ("accent", "Farbe"), ("dot", "Punkt"), ("laser", "Laserpointer")];
+    let tile = Vec2::new((ui.available_width() / 5.0).min(72.0), 48.0);
+    let (rect, _) = ui.allocate_exact_size(Vec2::new(tile.x * 5.0, tile.y), Sense::hover());
     let mut pick = None;
     for (i, (id, name)) in styles.iter().enumerate() {
         let r = Rect::from_min_size(Pos2::new(rect.min.x + i as f32 * tile.x, rect.min.y), tile);
         let resp = ui.interact(r, ui.id().with(("cs", i)), Sense::click());
         let on = cur == *id;
-        let cr = CornerRadius { nw: if i == 0 { 7 } else { 0 }, sw: if i == 0 { 7 } else { 0 }, ne: if i == 3 { 7 } else { 0 }, se: if i == 3 { 7 } else { 0 } };
+        let cr = CornerRadius { nw: if i == 0 { 7 } else { 0 }, sw: if i == 0 { 7 } else { 0 }, ne: if i == 4 { 7 } else { 0 }, se: if i == 4 { 7 } else { 0 } };
         ui.painter().rect_filled(r.shrink(1.0), cr, Color32::from_rgb(0x2a, 0x2c, 0x3d));
-        draw_arrow(ui, Pos2::new(r.min.x + 28.0, r.min.y + 8.0), 30.0, id);
+        draw_arrow(ui, Pos2::new(r.center().x - 8.0, r.min.y + 8.0), 30.0, id);
         if on {
             ui.painter().rect_filled(r.shrink(1.0), cr, alpha(ACCENT, 0.35));
         }
-        if i < 3 {
+        if i < 4 {
             ui.painter().line_segment([Pos2::new(r.max.x - 0.5, r.min.y), Pos2::new(r.max.x - 0.5, r.max.y)], Stroke::new(1.0, LINE_2));
         }
         if resp.on_hover_text(*name).on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
@@ -41,6 +41,14 @@ fn style_picker(st: &mut EditorState, ui: &mut Ui) {
 }
 
 fn draw_arrow(ui: &Ui, at: Pos2, h: f32, style: &str) {
+    if style == "laser" {
+        let center = at + Vec2::new(8.0, 13.0);
+        for (r, a) in [(14.0, 30), (10.0, 65), (6.0, 255)] {
+            ui.painter().circle_filled(center, r, Color32::from_rgba_unmultiplied(255, 48, 48, a));
+        }
+        ui.painter().circle_filled(center, 2.0, Color32::WHITE);
+        return;
+    }
     if style == "dot" {
         ui.painter().circle_filled(at, h * 0.28, Color32::from_white_alpha(230));
         ui.painter().circle_stroke(at, h * 0.28, Stroke::new(1.0, Color32::from_black_alpha(128)));
@@ -63,8 +71,17 @@ pub fn show(st: &mut EditorState, ui: &mut Ui) {
     let a = st.project.config.animations.clone();
     kit::h3(ui, "Cursor", true);
     note(ui, "Mausdaten werden getrennt vom Video gespeichert. Größe, Darstellung, Glättung und Klickeffekte bleiben bearbeitbar.");
-    slider(st, ui, "cur-size", "Size", c.size, (10.0, 80.0, 1.0), |v| format!("{} pt", v.round()), |p, v| p.config.cursor.size = v);
+    slider(st, ui, "cur-size", "Größe", c.size, (5.0, 160.0, 1.0), |v| format!("{} pt", v.round()), |p, v| p.config.cursor.size = v);
     style_picker(st, ui);
+    let standard = match c.style.as_str() { "laser" => "#ff3030", "accent" => "#3b82c4", "light" | "dot" => "#ffffff", _ => "#111111" };
+    color(st, ui, "pointer-color", "Zeigerfarbe", c.color.as_deref().unwrap_or(standard), |p, v| p.config.cursor.color = Some(v));
+    if c.color.is_some() && ui.button("Standardfarbe wiederherstellen").clicked() { st.edit(|p| p.config.cursor.color = None); }
+    toggle(st, ui, "Zeiger hervorheben", Some("Farbiger Kreis unter dem Mauszeiger."), c.highlight, |p, v| p.config.cursor.highlight = v);
+    if c.highlight {
+        slider(st, ui, "halo-size", "Kreisradius", c.highlight_size, (10.0, 160.0, 1.0), |v| format!("{} pt", v.round()), |p, v| p.config.cursor.highlight_size = v);
+        color(st, ui, "halo-color", "Kreisfarbe", &c.highlight_color, |p, v| p.config.cursor.highlight_color = v);
+        slider(st, ui, "halo-opacity", "Deckkraft", c.highlight_opacity, (0.05, 1.0, 0.05), pct, |p, v| p.config.cursor.highlight_opacity = v);
+    }
     toggle(st, ui, "Hide cursor if not moving", None, c.hide_not_moving_after_ms.is_some(), |p, v| p.config.cursor.hide_not_moving_after_ms = if v { Some(2000.0) } else { None });
     toggle(st, ui, "Hide cursor", None, c.hide, |p, v| p.config.cursor.hide = v);
     seg(st, ui, Some("Click effect"), &[(ClickEffect::None, "None"), (ClickEffect::Circle, "Circle"), (ClickEffect::Ripple, "Ripple")], c.click_effect, |p, v| p.config.cursor.click_effect = v);

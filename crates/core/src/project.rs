@@ -380,6 +380,8 @@ pub struct CursorConfig {
     /// Cursor height as a fraction of the output frame height... in px at 1080p.
     pub size: f64,
     pub style: String,
+    /// Optional custom pointer color. None preserves the selected style's original palette.
+    pub color: Option<String>,
     pub always_use_pointer: bool,
     pub hide_not_moving_after_ms: Option<f64>,
     pub loop_position_before_end_ms: Option<f64>,
@@ -403,6 +405,7 @@ impl Default for CursorConfig {
             hide: false,
             size: 28.0,
             style: "macos".into(),
+            color: None,
             always_use_pointer: false,
             hide_not_moving_after_ms: None,
             loop_position_before_end_ms: None,
@@ -416,6 +419,19 @@ impl Default for CursorConfig {
             highlight_color: "#ffd84a".into(),
             highlight_opacity: 0.35,
         }
+    }
+}
+
+#[cfg(test)]
+mod cursor_config_tests {
+    use super::CursorConfig;
+    #[test]
+    fn old_cursor_settings_keep_their_palette_and_new_edits_roundtrip() {
+        let mut c: CursorConfig = serde_json::from_str(r#"{"style":"light","size":28}"#).unwrap();
+        assert!(c.color.is_none());
+        c.style = "laser".into(); c.color = Some("#00ff00".into()); c.size = 160.0;
+        let loaded: CursorConfig = serde_json::from_slice(&serde_json::to_vec(&c).unwrap()).unwrap();
+        assert_eq!(c, loaded);
     }
 }
 

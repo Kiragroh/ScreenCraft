@@ -373,6 +373,7 @@ impl Compositor {
         if let Some(c) = &scene.cursor {
             u[15] = [c.pos[0], c.pos[1], c.size_px, c.rotation];
             u[16] = [c.alpha, c.scale, c.kind as f32, c.style as f32];
+            if let Some(color) = c.color { u[45] = [color[0], color[1], color[2], 1.0]; }
         }
         u[17] = [scene.highlight_radius_px, scene.highlight_alpha, 0.0, 0.0];
         u[18] = scene.highlight_color;

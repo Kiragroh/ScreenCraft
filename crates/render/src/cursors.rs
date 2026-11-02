@@ -226,6 +226,7 @@ pub fn style_index(name: &str) -> u32 {
         "light" => 1,
         "accent" => 2,
         "dot" => 3,
+        "laser" => 4, // procedural glow in the compositor, not an atlas row
         _ => 0,
     }
 }

@@ -358,12 +358,28 @@ fn fs(@builtin(position) frag: vec4<f32>) -> @location(0) vec4<f32> {
             let cs = cos(-rot);
             let sn = sin(-rot);
             rel = vec2<f32>(rel.x * cs - rel.y * sn, rel.x * sn + rel.y * cs) / sc;
-            let hot = HOTSPOTS[i32(kind)];
-            let cell = hot + rel * (REF_H / size);
-            if (cell.x >= 0.0 && cell.y >= 0.0 && cell.x < CELL && cell.y < CELL) {
-                let auv = vec2<f32>((floor(kind) * CELL + cell.x) / (9.0 * CELL), (floor(style) * CELL + cell.y) / (4.0 * CELL));
-                let s = textureSampleLevel(cursors, samp, auv, 0.0);
-                scr = over(scr, s.rgb, s.a * c_alpha);
+            if (style == 4.0) {
+                // A laser stays centered on the recorded pointer hotspot for every cursor kind.
+                let r = max(size * 0.5, 1.0);
+                let d = length(rel);
+                let laser = select(vec3<f32>(1.0, 0.188, 0.188), u.v[45].rgb, u.v[45].w > 0.5);
+                let glow = (1.0 - smoothstep(r * 0.2, r * 1.5, d)) * 0.45;
+                let core = 1.0 - smoothstep(r * 0.38, r * 0.5 + 0.8, d);
+                scr = over(scr, laser, glow * c_alpha);
+                scr = over(scr, laser, core * c_alpha);
+                let spark = (1.0 - smoothstep(0.0, r * 0.16 + 0.5, d)) * 0.75;
+                scr = over(scr, vec3<f32>(1.0), spark * c_alpha);
+            } else {
+                let hot = HOTSPOTS[i32(kind)];
+                let cell = hot + rel * (REF_H / size);
+                // Tint the light palette's white fill, keeping its dark outline and shadow.
+                let atlas_style = select(style, select(1.0, 3.0, style == 3.0), u.v[45].w > 0.5);
+                if (cell.x >= 0.0 && cell.y >= 0.0 && cell.x < CELL && cell.y < CELL) {
+                    let auv = vec2<f32>((floor(kind) * CELL + cell.x) / (9.0 * CELL), (floor(atlas_style) * CELL + cell.y) / (4.0 * CELL));
+                    let s = textureSampleLevel(cursors, samp, auv, 0.0);
+                    let rgb = select(s.rgb, s.rgb * u.v[45].rgb, u.v[45].w > 0.5);
+                    scr = over(scr, rgb, s.a * c_alpha);
+                }
             }
         }
         col = mix(col, scr, mask);
