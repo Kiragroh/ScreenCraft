@@ -136,6 +136,7 @@ impl Picker {
 
 /// The click-through outline around `rect` (global logical points): `sel` the chosen area, `hl` a
 /// window being hovered in the menu, `rec` while recording.
+#[cfg(not(windows))]
 pub fn draw_frame(ctx: &egui::Context, rect: PRect, style: &'static str, displays: &[DisplayInfo]) {
     let d = displays
         .iter()
@@ -194,4 +195,63 @@ pub fn draw_frame(ctx: &egui::Context, rect: PRect, style: &'static str, display
             }
         }
     });
+}
+
+/// Small opaque windows cannot turn into a full-screen black sheet when the
+/// Windows compositor or remote session does not support transparent surfaces.
+#[cfg(windows)]
+pub fn draw_frame(ctx: &egui::Context, rect: PRect, style: &'static str, _displays: &[DisplayInfo]) {
+    let color = if style == "rec" { DANGER } else { ACCENT_2 };
+    for (edge, r) in frame_edges(rect).into_iter().enumerate() {
+        let builder = ViewportBuilder::default()
+            .with_title(format!("ScreenCraft frame {edge}"))
+            .with_position(r.min)
+            .with_inner_size(r.size())
+            .with_decorations(false)
+            .with_transparent(false)
+            .with_resizable(false)
+            .with_has_shadow(false)
+            .with_taskbar(false)
+            .with_active(false)
+            .with_mouse_passthrough(true)
+            .with_always_on_top();
+        ctx.show_viewport_immediate(ViewportId::from_hash_of(("frame-edge", style, edge)), builder, |ui, _| {
+            ui.painter().rect_filled(ui.max_rect(), 0.0, color);
+        });
+    }
+}
+
+#[cfg(any(windows, test))]
+fn frame_edges(rect: PRect) -> [Rect; 4] {
+    let x = rect.x as f32;
+    let y = rect.y as f32;
+    let w = (rect.width as f32).max(1.0);
+    let h = (rect.height as f32).max(1.0);
+    let t = 2.0_f32.min(w).min(h);
+    [
+        Rect::from_min_size(Pos2::new(x, y), Vec2::new(w, t)),
+        Rect::from_min_size(Pos2::new(x, y + h - t), Vec2::new(w, t)),
+        Rect::from_min_size(Pos2::new(x, y), Vec2::new(t, h)),
+        Rect::from_min_size(Pos2::new(x + w - t, y), Vec2::new(t, h)),
+    ]
+}
+
+#[cfg(test)]
+mod frame_tests {
+    #[test]
+    fn outline_leaves_monitor_interior_and_stop_panel_uncovered() {
+        for (x, y, w, h) in [(0., 0., 2560., 1440.), (-1920., -200., 1920., 1080.)] {
+            let edges = super::frame_edges(super::PRect { x, y, width: w, height: h });
+            let center = super::Pos2::new((x + w / 2.) as f32, (y + h / 2.) as f32);
+            let stop = super::Rect::from_min_size(
+                super::Pos2::new((x + w / 2. - 220.) as f32, (y + h - 150.) as f32),
+                super::Vec2::new(440., 60.),
+            );
+            for edge in edges {
+                assert!(!edge.contains(center));
+                assert!(!edge.intersects(stop));
+                assert!(edge.width() <= 2. || edge.height() <= 2.);
+            }
+        }
+    }
 }

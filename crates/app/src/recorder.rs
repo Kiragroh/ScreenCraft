@@ -390,7 +390,7 @@ impl Recorder {
         match self.phase {
             Phase::Idle | Phase::Starting => Vec2::new(BAR_W.min(screen_w - 24.0), BAR_H + menu_h),
             Phase::Countdown => Vec2::new(240.0, 60.0),
-            Phase::Recording | Phase::Finishing => Vec2::new(if camera { 380.0 } else { 340.0 }, 60.0),
+            Phase::Recording | Phase::Finishing => Vec2::new(if camera { 480.0 } else { 440.0 }, 60.0),
             Phase::Confirm => Vec2::new(420.0, 60.0),
         }
     }
@@ -994,11 +994,10 @@ impl Recorder {
                 }
             }
             // trash + stop on the right
-            let stop_w = 18.0 * 2.0 + kit::text_width(ui, "Stop", 13.0);
+            let stop_w = 110.0;
             let stop = Rect::from_min_size(Pos2::new(bar.max.x - 12.0 - stop_w, cy - 20.0), Vec2::new(stop_w, 40.0));
-            let resp = ui.interact(stop, ui.id().with("stop"), Sense::click());
-            ui.painter().rect_filled(stop, CornerRadius::same(9), if resp.hovered() { Color32::from_rgb(0xff, 0x6b, 0x7a) } else { DANGER });
-            ui.painter().text(stop.center(), Align2::CENTER_CENTER, "Stop", kit::font(13.0), Color32::WHITE);
+            let resp = ui.put(stop, egui::Button::new(egui::RichText::new("Stop").size(16.0).strong().color(Color32::WHITE))
+                .fill(DANGER).corner_radius(9));
             if resp.on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
                 action = Action::Stop;
             }

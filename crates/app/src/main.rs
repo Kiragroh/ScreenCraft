@@ -1,3 +1,6 @@
+// The recorder is a GUI application; release builds must not open a console.
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
 /// The app icon (the same artwork as the bundle's), so the Dock never shows a default one.
 fn icon() -> eframe::egui::IconData {
     let dec = png::Decoder::new(std::io::Cursor::new(include_bytes!("../icon.png").as_slice()));
@@ -19,7 +22,7 @@ fn main() -> eframe::Result {
             .with_title("ScreenCraft")
             .with_inner_size([screencraft::recorder::BAR_W, screencraft::recorder::BAR_H])
             .with_decorations(false)
-            .with_transparent(true)
+            .with_transparent(!cfg!(windows))
             .with_resizable(false)
             .with_has_shadow(false)
             .with_always_on_top()

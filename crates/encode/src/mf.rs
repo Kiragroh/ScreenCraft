@@ -15,6 +15,7 @@ use std::sync::Once;
 use windows::core::Interface;
 use windows::Win32::Media::MediaFoundation::*;
 use windows::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED};
+use windows::Win32::System::Variant::VARIANT;
 
 fn init() -> Result<()> {
     static ONCE: Once = Once::new();
@@ -113,6 +114,12 @@ impl MfH264Encoder {
         init()?;
         unsafe {
             let mft: IMFTransform = CoCreateInstance(&CLSID_MSH264EncoderMFT, None, CLSCTX_INPROC_SERVER).map_err(|e| err("no H.264 encoder", e))?;
+            // Packet and the MP4 writer require DTS == PTS. High-profile encoders
+            // can otherwise emit B frames in decode order, breaking recording.
+            // This property must be set before SetOutputType.
+            let codec: ICodecAPI = mft.cast().map_err(|e| err("encoder properties", e))?;
+            codec.SetValue(&CODECAPI_AVEncMPVDefaultBPictureCount, &VARIANT::from(0u32))
+                .map_err(|e| err("disable frame reordering", e))?;
             let fps = (cfg.fps_num, cfg.fps_den.max(1));
             let out_t = video_type(&MFVideoFormat_H264, cfg.width, cfg.height, fps).map_err(|e| err("encoder type", e))?;
             out_t.SetUINT32(&MF_MT_AVG_BITRATE, cfg.bitrate_kbps.saturating_mul(1000)).map_err(|e| err("bitrate", e))?;
@@ -205,6 +212,12 @@ impl MfH264Decoder {
         init()?;
         unsafe {
             let mft: IMFTransform = CoCreateInstance(&CLSID_MSH264DecoderMFT, None, CLSCTX_INPROC_SERVER).map_err(|e| err("no H.264 decoder", e))?;
+            // The editor associates each returned picture with the submitted sample.
+            // Avoid the default multi-frame decoder buffer for our non-reordered stream.
+            // Microsoft's H.264 decoder specifically requires VT_UI4 for this property.
+            let codec: ICodecAPI = mft.cast().map_err(|e| err("decoder properties", e))?;
+            codec.SetValue(&CODECAPI_AVLowLatencyMode, &VARIANT::from(1u32))
+                .map_err(|e| err("low-latency decoding", e))?;
             let in_t = MFCreateMediaType().map_err(|e| err("decoder type", e))?;
             in_t.SetGUID(&MF_MT_MAJOR_TYPE, &MFMediaType_Video).map_err(|e| err("decoder type", e))?;
             in_t.SetGUID(&MF_MT_SUBTYPE, &MFVideoFormat_H264).map_err(|e| err("decoder type", e))?;
