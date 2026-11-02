@@ -7,6 +7,9 @@ use std::path::PathBuf;
 #[serde(default)]
 pub struct Prefs {
     pub recordings_dir: PathBuf,
+    /// Previously used recording locations remain in the media library.
+    pub recording_folders: Vec<PathBuf>,
+    pub favorite_folders: Vec<PathBuf>,
     pub fps: u32,
     pub max_long_side: u32,
     pub system_audio: bool,
@@ -31,6 +34,8 @@ impl Default for Prefs {
         let base = dirs::video_dir().or_else(dirs::home_dir).unwrap_or_else(|| PathBuf::from("."));
         Self {
             recordings_dir: base.join("ScreenCraft"),
+            recording_folders: Vec::new(),
+            favorite_folders: Vec::new(),
             fps: 30,
             max_long_side: 2560,
             system_audio: true,
@@ -54,6 +59,21 @@ fn path() -> Option<PathBuf> {
 }
 
 impl Prefs {
+    pub fn library_roots(&self) -> Vec<PathBuf> {
+        let mut roots = vec![self.recordings_dir.clone()];
+        for root in self.recording_folders.iter().chain(&self.favorite_folders) {
+            if !roots.contains(root) { roots.push(root.clone()); }
+        }
+        roots
+    }
+
+    pub fn set_recordings_dir(&mut self, dir: PathBuf) {
+        if !self.recording_folders.contains(&self.recordings_dir) {
+            self.recording_folders.push(self.recordings_dir.clone());
+        }
+        self.recordings_dir = dir;
+    }
+
     pub fn load() -> Self {
         let mut p: Self = path()
             .and_then(|p| std::fs::read(p).ok())

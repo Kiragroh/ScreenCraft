@@ -18,6 +18,7 @@ struct EditorWin {
 }
 
 pub struct App {
+    library: crate::library::Library,
     prefs: Prefs,
     rec: Recorder,
     editors: Vec<EditorWin>,
@@ -62,6 +63,7 @@ impl App {
         let mut app = Self::build(&cc.egui_ctx, render_state, true);
         crate::updates::startup_check(cc.egui_ctx.clone());
         app.show_permissions = cfg!(target_os = "macos") && !app.rec.permissions.screen;
+        if std::env::args().any(|arg| arg == "--library") { app.library.open(); }
         app
     }
 
@@ -154,6 +156,7 @@ impl App {
         let mut rec = Recorder::new(ctx, &prefs);
         rec.permissions = screencraft_capture::permissions();
         let mut app = Self {
+            library: crate::library::Library::default(),
             rec,
             prefs,
             editors: Vec::new(),
@@ -322,6 +325,7 @@ impl App {
                             let _ = std::fs::remove_dir_all(&f.package.dir);
                         }
                         Ok(f) => {
+                            if !f.warnings.is_empty() { self.rec.show_error(f.warnings.join("\n")); }
                             self.fresh.push(f.package.dir.clone());
                             self.pending_open.push(f.package.dir.clone());
                         }
@@ -354,6 +358,7 @@ impl App {
     fn handle_action(&mut self, ctx: &egui::Context, a: Action) {
         match a {
             Action::None => {}
+            Action::OpenLibrary => self.library.open(),
             Action::Record => self.begin_recording(ctx),
             Action::Stop => self.finish_recording(ctx, false),
             Action::Cancel => self.finish_recording(ctx, false),
@@ -530,6 +535,7 @@ impl App {
                     if let Some(req) = ed.open_request.take() {
                         open_requests.push(req);
                     }
+                    if std::mem::take(&mut ed.library_request) { self.library.open(); }
                     if let Some(req) = ed.compress_request.take() {
                         compress_requests.push(req);
                     }
@@ -577,6 +583,10 @@ impl App {
             if c.show(&ctx) {
                 self.compressor = Some(c);
             }
+        }
+        let protected: Vec<_> = self.editors.iter().map(|e| e.ed.package.dir.clone()).collect();
+        if let Some(dir) = self.library.show(&ctx, &mut self.prefs, &protected, self.rec.phase != Phase::Idle) {
+            open_requests.push(dir);
         }
         open_requests.extend(std::mem::take(&mut self.pending_open));
         for dir in open_requests {

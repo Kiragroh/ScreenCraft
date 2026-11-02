@@ -180,6 +180,7 @@ pub struct EditorState {
     pub wants_back: bool,
     /// A project the user asked to open from this window's Projects menu.
     pub open_request: Option<std::path::PathBuf>,
+    pub library_request: bool,
     /// Raw video to open in the compressor window.
     pub compress_request: Option<std::path::PathBuf>,
     /// Waveform peaks (0..1, 3000 bins) of music files, filled in by a worker.
@@ -272,6 +273,7 @@ impl EditorState {
             tl_h: 350.0,
             wants_back: false,
             open_request: None,
+            library_request: false,
             compress_request: None,
             music_peaks: HashMap::new(),
             peaks_pending: Default::default(),
@@ -1188,17 +1190,16 @@ impl EditorState {
             }
             ui.add_space(2.0);
             // Projects button
-            let tw = kit::text_width(ui, "Projects", 13.0);
+            let tw = kit::text_width(ui, "Medien", 13.0);
             let (rect, resp) = ui.allocate_exact_size(Vec2::new(tw + 10.0 * 2.0 + 16.0 + 8.0, 32.0), Sense::click());
             if resp.hovered() {
                 ui.painter().rect_filled(rect, CornerRadius::same(7), RAISE);
             }
             let fg = if resp.hovered() { Color32::WHITE } else { Color32::from_rgb(0xcd, 0xd5, 0xe5) };
             icons::paint(ui, "folder", Rect::from_center_size(Pos2::new(rect.min.x + 10.0 + 8.0, rect.center().y), Vec2::splat(16.0)), fg);
-            ui.painter().text(Pos2::new(rect.min.x + 10.0 + 16.0 + 8.0, rect.center().y), Align2::LEFT_CENTER, "Projects", kit::font(13.0), fg);
-            if resp.clone().on_hover_text("Open another project or show this one in Finder").clicked() {
-                self.dialogs.projects = !self.dialogs.projects;
-                self.dialogs.projects_anchor = Some(rect);
+            ui.painter().text(Pos2::new(rect.min.x + 10.0 + 16.0 + 8.0, rect.center().y), Align2::LEFT_CENTER, "Medien", kit::font(13.0), fg);
+            if resp.clone().on_hover_text("Alle Aufnahmen und favorisierte Ordner").clicked() {
+                self.library_request = true;
             }
             // Title
             ui.add_space(6.0);

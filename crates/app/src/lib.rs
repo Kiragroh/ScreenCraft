@@ -9,6 +9,7 @@ pub mod icons;
 pub mod imgdata;
 pub mod kit;
 pub mod live;
+pub mod library;
 pub mod music;
 pub mod permissions;
 pub mod prefs;

@@ -76,6 +76,9 @@ fn bubble_controls(st: &mut EditorState, ui: &mut Ui, c: &CameraConfig, target: 
 
 pub fn show(st: &mut EditorState, ui: &mut Ui) {
     kit::h3(ui, "Camera", true);
+    if st.project.media.camera.is_some() {
+        note(ui, "Separate Webcam-Spur: Position, Größe, Form und Sichtbarkeit lassen sich nachträglich ändern.");
+    }
     if st.project.media.camera.is_none() {
         note(ui, "This recording has no camera track. Enable a camera in the recorder toolbar before recording.");
         return;

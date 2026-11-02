@@ -170,6 +170,7 @@ pub struct Menu {
 /// What the bar asks the application to do.
 pub enum Action {
     None,
+    OpenLibrary,
     Record,
     Stop,
     Cancel,
@@ -564,7 +565,7 @@ impl Recorder {
             }
             MenuAction::ChooseFolder => {
                 if let Some(d) = rfd::FileDialog::new().set_directory(&prefs.recordings_dir).pick_folder() {
-                    prefs.recordings_dir = d;
+                    prefs.set_recordings_dir(d);
                 }
             }
         }
@@ -754,10 +755,9 @@ impl Recorder {
             }
             x += r.width() + 6.0;
         }
-        let (r, resp) = opt_button_icon_right(ui, Pos2::new(x, oy), "Projects", "folder");
-        if resp.on_hover_text("Open projects").on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
-            let items = self.folder_items(prefs);
-            self.toggle_menu(MenuKind::Folder, items, (r.min.x - left0).clamp(8.0, BAR_W - 320.0));
+        let (_, resp) = opt_button_icon_right(ui, Pos2::new(x, oy), "Medien", "folder");
+        if resp.on_hover_text("Alle Aufnahmen und favorisierte Ordner").on_hover_cursor(egui::CursorIcon::PointingHand).clicked() {
+            action = Action::OpenLibrary;
         }
 
         // ---- record

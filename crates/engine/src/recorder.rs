@@ -87,6 +87,7 @@ impl LiveStats {
 }
 
 pub struct Finished {
+    pub warnings: Vec<String>,
     pub package: Package,
     pub project: Project,
     pub duration_ms: f64,
@@ -280,11 +281,12 @@ impl Recording {
                 .map_err(|e| e.to_string())?
         };
 
+        let mut camera_error = None;
         let camera = opts.camera.as_ref().filter(|_| !camera_only).and_then(|c| {
             match crate::camera_rec::CameraRecorder::start(c.hub.clone(), opts.output.dir.join("camera.mp4"), clock.clone(), opts.hardware) {
                 Ok(r) => Some(r),
                 Err(e) => {
-                    eprintln!("[screencraft] camera not recorded: {e}");
+                    camera_error = Some(format!("Webcam-Aufnahme konnte nicht gestartet werden: {e}"));
                     None
                 }
             }
@@ -305,6 +307,10 @@ impl Recording {
             encoder_name,
         };
 
+        if let Some(error) = camera_error {
+            let _ = rec.abort();
+            return Err(error);
+        }
         // Wait for the first frame so the caller knows capture is really running.
         let deadline = std::time::Instant::now() + Duration::from_secs(6);
         while rec.first_frame.lock().unwrap().is_none() {
@@ -367,7 +373,11 @@ impl Recording {
             .join()
             .map_err(|_| "recorder thread panicked".to_string())??;
 
-        let camera_done = self.camera.take().and_then(|c| c.finish(result.origin_ns));
+        let mut warnings = Vec::new();
+        let camera_done = self.camera.take().and_then(|c| match c.finish(result.origin_ns) {
+            Ok(offset) => Some(offset),
+            Err(e) => { warnings.push(format!("Webcam-Spur konnte nicht gespeichert werden: {e}")); None }
+        });
         let zero = self.clock.epoch() + Duration::from_nanos(result.origin_ns);
         let log = self.tracker.take().map(|t| t.finish(zero, self.info.bounds)).unwrap_or_default();
         let json = serde_json::to_vec(&log).map_err(|e| e.to_string())?;
@@ -406,7 +416,11 @@ impl Recording {
         project.id = format!("{:x}", self.started_unix_ms as u64);
         project.created_at = format!("{}", self.started_unix_ms as u64);
         self.opts.output.save_project(&project)?;
+        if !warnings.is_empty() {
+            let _ = std::fs::write(self.opts.output.dir.join("recording-warnings.txt"), warnings.join("\n"));
+        }
         Ok(Finished {
+            warnings,
             package: self.opts.output.clone(),
             project,
             duration_ms: result.duration_ms,

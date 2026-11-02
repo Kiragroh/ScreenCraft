@@ -62,6 +62,7 @@ pub fn show(st: &mut EditorState, ui: &mut Ui) {
     let c = st.project.config.cursor.clone();
     let a = st.project.config.animations.clone();
     kit::h3(ui, "Cursor", true);
+    note(ui, "Mausdaten werden getrennt vom Video gespeichert. Größe, Darstellung, Glättung und Klickeffekte bleiben bearbeitbar.");
     slider(st, ui, "cur-size", "Size", c.size, (10.0, 80.0, 1.0), |v| format!("{} pt", v.round()), |p, v| p.config.cursor.size = v);
     style_picker(st, ui);
     toggle(st, ui, "Hide cursor if not moving", None, c.hide_not_moving_after_ms.is_some(), |p, v| p.config.cursor.hide_not_moving_after_ms = if v { Some(2000.0) } else { None });

@@ -87,7 +87,8 @@ impl CameraRecorder {
                         }
                         Err(_) => break,
                     }
-                    if stop2.load(Ordering::SeqCst) && rx.try_recv().is_err() {
+                    if stop2.load(Ordering::SeqCst) {
+                        while let Ok(f) = rx.try_recv() { handle(f, &mut t0)?; }
                         break;
                     }
                 }
@@ -99,14 +100,15 @@ impl CameraRecorder {
     }
 
     /// Stop and finish the file. Returns the camera's clock offset in ms (`camera time = source
-    /// time + offset`), or None when nothing usable was recorded.
-    pub fn finish(mut self, screen_origin_ns: u64) -> Option<f64> {
+    /// time + offset`). Report failures instead of silently losing the camera track.
+    pub fn finish(mut self, screen_origin_ns: u64) -> Result<f64, String> {
         self.stop.store(true, Ordering::SeqCst);
-        let ok = self.join.take().map(|j| j.join().ok().and_then(|r| r.ok()).is_some()).unwrap_or(false);
+        self.join.take().ok_or("camera recorder already stopped")?.join()
+            .map_err(|_| "camera recorder thread panicked")??;
         let first = self.first_ns.load(Ordering::SeqCst);
-        if !ok || first == u64::MAX {
-            return None;
+        if first == u64::MAX {
+            return Err("camera recording contains no frames".into());
         }
-        Some((screen_origin_ns as f64 - first as f64) / 1e6)
+        Ok((screen_origin_ns as f64 - first as f64) / 1e6)
     }
 }
